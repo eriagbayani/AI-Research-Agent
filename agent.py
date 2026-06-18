@@ -180,7 +180,6 @@ def run_agent(company_name: str) -> str:
     print(report)
     print("=" * 50)
 
-    send_to_n8n(company_name, report)
     return report
 
 
