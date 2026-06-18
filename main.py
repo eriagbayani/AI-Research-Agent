@@ -8,10 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── APP ────────────────────────────────────────────────
+ENV = os.getenv("ENV", "development")
+
 app = FastAPI(
     title="AI Research Agent API",
     description="Give it a company name — get a structured research report back.",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs" if ENV == "development" else None,
+    redoc_url="/redoc" if ENV == "development" else None,
 )
 
 # ── REQUEST / RESPONSE MODELS ──────────────────────────
