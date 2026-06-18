@@ -52,7 +52,7 @@ GET /health
 
 ## Architecture
 
-![Architecture](architecture.png)
+![Architecture](architecture.svg)
 
 ## Tech Stack
 
