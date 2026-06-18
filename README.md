@@ -4,7 +4,7 @@ An autonomous AI agent that researches any company and returns a structured repo
 
 ## Live API
 
-**Base URL:** `https://ai-research-agent-1bnl.onrender.com/`
+**Base URL:** `https://your-render-url.onrender.com`
 
 ```
 POST /research
@@ -71,7 +71,7 @@ GET /health
 
 **1. Clone the repo**
 ```bash
-git clone https://github.com/eriagbayani/AI-Research-Agent
+git clone https://github.com/yourusername/ai-research-agent
 cd ai-research-agent
 ```
 
