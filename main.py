@@ -29,18 +29,18 @@ class ResearchResponse(BaseModel):
 
 # ── ROUTES ─────────────────────────────────────────────
 @app.get("/")
-def root():
+async def root():
     return {
         "message": "AI Research Agent API is running",
         "usage": "POST /research with {'company': 'company name'}"
     }
 
 @app.get("/health")
-def health():
+async def health():
     return {"status": "healthy"}
 
 @app.post("/research", response_model=ResearchResponse)
-def research(request: ResearchRequest):
+async def research(request: ResearchRequest):
     if not request.company.strip():
         raise HTTPException(
             status_code=400,
