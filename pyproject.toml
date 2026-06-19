@@ -9,6 +9,7 @@ dependencies = [
     "groq>=1.4.0",
     "python-dotenv>=1.2.2",
     "requests>=2.34.2",
+    "slowapi>=0.1.10",
     "tavily-python>=0.7.25",
     "uvicorn>=0.49.0",
 ]
