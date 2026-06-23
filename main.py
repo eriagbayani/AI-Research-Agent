@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # ── LIFESPAN ────────────────────────────────────────────
 @asynccontextmanager
-def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Server starting...")
     yield
