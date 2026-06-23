@@ -1,13 +1,18 @@
 import os
+import uuid
+import logging
+from logging_config import setup_logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Security, Request
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
-from datetime import date
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from agent import run_agent
 from dotenv import load_dotenv
+from datetime import date
 
 load_dotenv()
 
@@ -18,6 +23,16 @@ VALID_API_KEY = os.getenv("API_KEY", "dev-key-123")
 # ── RATE LIMITER ───────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
 
+# logger (just define, DO NOT setup yet)
+logger = logging.getLogger(__name__)
+
+# ── LIFESPAN ────────────────────────────────────────────
+@asynccontextmanager
+def lifespan(app: FastAPI):
+    setup_logging()
+    logger.info("Server starting...")
+    yield
+
 # ── APP ────────────────────────────────────────────────
 app = FastAPI(
     title="AI Research Agent API",
@@ -25,6 +40,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs" if ENV == "development" else None,
     redoc_url="/redoc" if ENV == "development" else None,
+    lifespan=lifespan
 )
 
 app.state.limiter = limiter
@@ -76,7 +92,7 @@ async def research(
             detail="Company name cannot be empty"
         )
 
-    print(f"Research request received: {body.company}")
+    logger.info("Research request received: %s", body.company)
 
     report = run_agent(body.company)
 
