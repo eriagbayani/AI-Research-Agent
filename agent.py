@@ -14,7 +14,7 @@ load_dotenv()
 
 # -- Config ------------------------------------------------------------------
 
-LLM_MODEL = "llama-3.3-70b-versatile"
+LLM_MODEL = "openai/gpt-oss-120b"
 MAX_SEARCH_RESULTS = 3
 MAX_SEARCH_ITERATIONS = 4
 N8N_WEBHOOK_URL = "http://localhost:5680/webhook-test/e8ec1971-3497-483f-a611-c9c5f0fec593"
