@@ -131,20 +131,41 @@ def write_report(company_name: str, research: str) -> str:
         {
             "role": "system",
             "content": (
-                "You are a business research analyst.\n"
-                "Write a clean structured company report using the research provided.\n\n"
-                "Format:\n"
-                "1. Company Overview (2-3 sentences)\n"
-                "2. What They Do (bullet points)\n"
-                "3. Recent News or Developments\n"
-                "4. Key People (if found)\n"
-                "5. Why They Matter (1-2 sentences)\n\n"
-                "Be concise and professional."
+                "You are a business research analyst.\n\n"
+                "Write a clean, professional company research report.\n\n"
+                "IMPORTANT FORMATTING RULES:\n"
+                "- Do NOT use Markdown.\n"
+                "- Do NOT use #, ##, ###, **, *, or ---.\n"
+                "- Use plain text headings.\n"
+                "- Use simple bullet points beginning with '-'.\n"
+                "- Leave one blank line between sections.\n"
+                "- Keep the report concise and easy to read.\n"
+                "- Do not include an introduction or conclusion outside the requested sections.\n\n"
+                "FORMAT:\n\n"
+                "COMPANY OVERVIEW\n"
+                "Write 2-3 sentences.\n\n"
+                "WHAT THEY DO\n"
+                "- Bullet point\n"
+                "- Bullet point\n"
+                "- Bullet point\n\n"
+                "RECENT NEWS OR DEVELOPMENTS\n"
+                "- Bullet point\n"
+                "- Bullet point\n\n"
+                "KEY PEOPLE\n"
+                "- Name: Role\n"
+                "If unavailable, write: No reliable public information found.\n\n"
+                "WHY THEY MATTER\n"
+                "Write 1-2 sentences.\n\n"
+                "Only include information supported by the research provided. "
+                "Do not invent facts."
             ),
         },
         {
             "role": "user",
-            "content": f"Write a report on {company_name} using this research:\n\n{research}",
+            "content": (
+                f"Write a report on {company_name} using this research:\n\n"
+                f"{research}"
+            ),
         },
     ]
 
