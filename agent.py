@@ -265,16 +265,22 @@ def maybe_run_extra_search(company_name: str, entity: dict, all_results: str) ->
     return all_results
 
 
-def write_report(company_name: str, entity: dict, research: str) -> str:
+def write_report(company_name: str, entity: dict, research: str) -> dict:
+    """Returns a structured dict instead of one long string. This is the
+    fix for the "hard to read" JSON: a single string with embedded \\n
+    escapes is correct JSON but ugly to eyeball raw, and awkward to use
+    downstream (e.g. in n8n) since you'd have to parse/split the text
+    yourself. Structured fields mean n8n (or anything else consuming this)
+    can reference report.overview, report.what_they_do[0], etc. directly."""
     logger.info("Final step — writing report")
 
-    ambiguity_note = ""
+    ambiguity_note = None
     if entity.get("ambiguous"):
-        others = ", ".join(entity.get("other_candidates", [])) or "other entities"
+        others = entity.get("other_candidates", [])
         ambiguity_note = (
-            f"\n\nNOTE: '{company_name}' may refer to more than one company "
-            f"(also found: {others}). This report is about "
-            f"{entity.get('resolved_name', company_name)}"
+            f"'{company_name}' may refer to more than one company "
+            f"(also found: {', '.join(others) if others else 'other entities'}). "
+            f"This report is about {entity.get('resolved_name', company_name)}"
             f"{' (' + entity['domain'] + ')' if entity.get('domain') else ''}."
         )
 
@@ -283,34 +289,25 @@ def write_report(company_name: str, entity: dict, research: str) -> str:
             "role": "system",
             "content": (
                 "You are a business research analyst.\n\n"
-                "Write a clean, professional company research report.\n\n"
-                "IMPORTANT FORMATTING RULES:\n"
-                "- Do NOT use Markdown.\n"
-                "- Do NOT use #, ##, ###, **, *, or ---.\n"
-                "- Use plain text headings.\n"
-                "- Use simple bullet points beginning with '-'.\n"
-                "- Leave one blank line between sections.\n"
-                "- Keep the report concise and easy to read.\n"
-                "- Do not include an introduction or conclusion outside the requested sections.\n\n"
-                "FORMAT:\n\n"
-                "COMPANY OVERVIEW\n"
-                "Write 2-3 sentences.\n\n"
-                "WHAT THEY DO\n"
-                "- Bullet point\n"
-                "- Bullet point\n"
-                "- Bullet point\n\n"
-                "RECENT NEWS OR DEVELOPMENTS\n"
-                "- Bullet point\n"
-                "- Bullet point\n\n"
-                "KEY PEOPLE\n"
-                "- Name: Role\n"
-                "If unavailable, write: No reliable public information found.\n\n"
-                "WHY THEY MATTER\n"
-                "Write 1-2 sentences.\n\n"
-                "Only include information supported by the research provided. "
-                "Do not invent facts. Only include facts about the specific company "
-                "identified below — ignore any research snippets that appear to be "
-                "about a different, similarly named company."
+                "Write a clean, professional company research report as STRICT JSON.\n\n"
+                "IMPORTANT RULES:\n"
+                "- Output ONLY a single JSON object, no markdown, no code fences, no commentary.\n"
+                "- Use plain ASCII characters only: straight quotes (\" and '), regular hyphens (-), "
+                "no smart quotes, no em/en dashes, no bullet characters.\n"
+                "- Keep sentences concise and easy to read.\n"
+                "- Only include information supported by the research provided. Do not invent facts.\n"
+                "- Only include facts about the specific company identified below — ignore any "
+                "research snippets that appear to be about a different, similarly named company.\n\n"
+                "JSON SHAPE (exact keys):\n"
+                "{\n"
+                '  "overview": "2-3 sentences",\n'
+                '  "what_they_do": ["bullet", "bullet", "bullet"],\n'
+                '  "recent_news": ["bullet", "bullet"],\n'
+                '  "key_people": ["Name: Role", "Name: Role"],\n'
+                '  "why_they_matter": "1-2 sentences"\n'
+                "}\n\n"
+                "If key_people or recent_news is unavailable, use an empty array []. "
+                "Never invent placeholder names."
             ),
         },
         {
@@ -325,13 +322,50 @@ def write_report(company_name: str, entity: dict, research: str) -> str:
         },
     ]
 
-    report = ask_llm(messages, temperature=0)
-    return report + ambiguity_note
+    raw = ask_llm(messages, temperature=0)
+    fallback = {
+        "overview": "",
+        "what_they_do": [],
+        "recent_news": [],
+        "key_people": [],
+        "why_they_matter": "",
+    }
+    report = _parse_json_response(raw, fallback)
+    report["ambiguity_note"] = ambiguity_note
+    return report
+
+
+def format_report_as_text(report: dict) -> str:
+    """Renders the structured report dict as the plain-text layout you had
+    before, for printing to console / logs / anywhere you want a single
+    readable string rather than structured fields."""
+
+    def bullets(items: list[str]) -> str:
+        return "\n".join(f"- {item}" for item in items) if items else "- No reliable public information found."
+
+    key_people = bullets(report.get("key_people", []))
+    recent_news = bullets(report.get("recent_news", []))
+
+    text = (
+        f"COMPANY OVERVIEW\n{report.get('overview', '')}\n\n"
+        f"WHAT THEY DO\n{bullets(report.get('what_they_do', []))}\n\n"
+        f"RECENT NEWS OR DEVELOPMENTS\n{recent_news}\n\n"
+        f"KEY PEOPLE\n{key_people}\n\n"
+        f"WHY THEY MATTER\n{report.get('why_they_matter', '')}"
+    )
+
+    if report.get("ambiguity_note"):
+        text += f"\n\nNOTE: {report['ambiguity_note']}"
+
+    return text
 
 
 # -- Delivery ----------------------------------------------------------------
 
-def send_to_n8n(company_name: str, report: str) -> None:
+def send_to_n8n(company_name: str, report: dict) -> None:
+    """Sends the structured report dict, not a pre-formatted string.
+    In n8n you can now reference $json.report.overview,
+    $json.report.what_they_do[0], etc. directly instead of parsing text."""
     payload = {
         "company": company_name,
         "report": report,
@@ -348,7 +382,7 @@ def send_to_n8n(company_name: str, report: str) -> None:
 
 # -- Orchestrator ------------------------------------------------------------
 
-def run_agent(company_name: str, context_hint: str = "") -> str:
+def run_agent(company_name: str, context_hint: str = "") -> dict:
     """context_hint: optional extra info to disambiguate the company up
     front (industry, city, known domain). Pass it whenever you have it —
     it's the cheapest way to avoid the wrong-company problem entirely."""
@@ -375,7 +409,7 @@ def run_agent(company_name: str, context_hint: str = "") -> str:
     report = write_report(company_name, entity, all_results)
 
     logger.info("=== FINAL REPORT READY ===")
-    logger.debug("Report:\n%s", report)
+    logger.debug("Report:\n%s", format_report_as_text(report))
 
     return report
 
@@ -386,5 +420,5 @@ if __name__ == "__main__":
     company = input("Enter company name: ")
     hint = input("Any disambiguating context (industry/city/domain, optional): ").strip()
     report = run_agent(company, hint)
-    print(report)
-    send_to_n8n(company, report)
+    print(format_report_as_text(report))  # human-readable in the console
+    send_to_n8n(company, report)          # structured JSON to n8n
