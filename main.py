@@ -60,10 +60,19 @@ def verify_api_key(api_key: str = Security(api_key_header)):
 # ── REQUEST / RESPONSE MODELS ──────────────────────────
 class ResearchRequest(BaseModel):
     company: str
+    context_hint: str = ""  # optional: industry/city/domain to disambiguate
+
+class ReportSection(BaseModel):
+    overview: str
+    what_they_do: list[str]
+    recent_news: list[str]
+    key_people: list[str]
+    why_they_matter: str
+    ambiguity_note: str | None = None
 
 class ResearchResponse(BaseModel):
     company: str
-    report: str
+    report: ReportSection
     timestamp: str
 
 # ── ROUTES ─────────────────────────────────────────────
@@ -94,10 +103,10 @@ async def research(
 
     logger.info("Research request received: %s", body.company)
 
-    report = run_agent(body.company)
+    report = run_agent(body.company, body.context_hint)
 
     return ResearchResponse(
         company=body.company,
-        report=report,
+        report=report,  # dict from run_agent matches ReportSection's fields
         timestamp=str(date.today())
     )
